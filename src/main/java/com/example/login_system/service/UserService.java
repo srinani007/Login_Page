@@ -19,12 +19,13 @@ public class UserService {
     private PasswordEncoder passwordEncoder;
 
     public void registerUser(User user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword())); // Encrypt password
-        if (user.getRole() == null || user.getRole().isEmpty()) {
-            user.setRole("USER"); // Default role
+        if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+            throw new IllegalArgumentException("Password cannot be null or empty!");
         }
+        user.setPassword(passwordEncoder.encode(user.getPassword())); // 🔥 Hashing password before saving
         userRepository.save(user);
     }
+
 
     public Optional<User> findByUsername(String username) {
         return userRepository.findByUsername(username);

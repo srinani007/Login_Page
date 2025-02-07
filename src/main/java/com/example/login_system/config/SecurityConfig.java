@@ -1,49 +1,54 @@
 package com.example.login_system.config;
 
-import jakarta.servlet.DispatcherType;
+import com.example.login_system.security.JwtAuthenticationFilter;
+import com.example.login_system.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http
-                // Configure which requests are permitted without authentication
-                .authorizeHttpRequests(authorize -> authorize
-                        // Allow forwarded requests (useful for error pages and view resolution)
-                        .dispatcherTypeMatchers(DispatcherType.FORWARD).permitAll()
-                        // Allow access to static resources and the login page itself
-                        .requestMatchers("/css/**", "/js/**", "/images/**", "/error/**", "/loginPage**").permitAll()
-                        // Require authentication for any other request
-                        .anyRequest().authenticated()
-                )
-                // Configure form-based login
-                .formLogin(form -> form
-                        // Set a custom login page; ensure a controller exists that maps to "/login"
-                        .loginPage("/loginPage")
-                        // After a successful login, always redirect to "/home"
-                        .defaultSuccessUrl("/home", true)
-                        // Permit all users to see the login page
+                .csrf(AbstractHttpConfigurer::disable) // ✅ Disabling CSRF for API-based auth
+                .authorizeHttpRequests(auth -> auth
+                        // ✅ Allow register, login, and public resources
+                        .requestMatchers("/api/auth/login", "/api/register", "/css/**", "/js/**", "/images/**", "/error/**", "/loginPage**")
                         .permitAll()
+                        // ✅ Allow access to the home and other pages if needed
+                        .requestMatchers("/", "/home").permitAll()
+                        .anyRequest().authenticated() // All other requests require authentication
                 )
-                // Configure logout functionality
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .logoutSuccessUrl("/login?logout")
-                        .permitAll()
-                ).csrf(AbstractHttpConfigurer::disable);
-        ;
+                // ✅ Add JWT authentication filter before UsernamePasswordAuthenticationFilter
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider(UserDetailsServiceImpl userDetailsService) {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
     }
 
     @Bean

@@ -1,32 +1,34 @@
 package com.example.login_system.controller;
 
-
 import com.example.login_system.model.User;
 import com.example.login_system.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.web.bind.annotation.*;
 
-@Controller
-@RequestMapping("/register")
+@RestController  // ✅ Use @RestController for JSON responses
+@RequestMapping("/api")  // ✅ API should be accessible at /api/register
 public class RegisterController {
 
     @Autowired
     private UserService userService;
 
-    @GetMapping
-    public String showRegistrationForm(Model model) {
-        model.addAttribute("user", new User());
-        return "register";
-    }
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder; // ✅ Ensure you have this bean configured in a SecurityConfig class
 
-    @PostMapping
-    public String registerUser(@ModelAttribute User user) {
+    @PostMapping("/register")
+    public ResponseEntity<String> registerUser(@RequestBody User user) {
+        System.out.println("Received user data: " + user); // 🔥 Debugging print
+
+        if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Password cannot be empty!");
+        }
+
+        // ✅ Encrypt the password before saving to DB
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+
         userService.registerUser(user);
-        return "redirect:/loginPage";
+        return ResponseEntity.ok("User registered successfully!");
     }
 }
